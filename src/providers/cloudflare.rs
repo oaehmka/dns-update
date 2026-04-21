@@ -73,7 +73,7 @@ pub enum DnsContent {
     TXT { content: String },
     SRV { data: SrvData },
     TLSA { data: TlsaData },
-    CAA { content: String },
+    CAA { data: CaaData },
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -90,6 +90,13 @@ pub struct TlsaData {
     pub selector: u8,
     pub matching_type: u8,
     pub certificate: String,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct CaaData {
+    pub flags: u8,
+    pub tag: String,
+    pub value: String,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -308,9 +315,12 @@ impl From<DnsRecord> for DnsContent {
                         .collect(),
                 },
             },
-            DnsRecord::CAA(caa) => DnsContent::CAA {
-                content: caa.to_string(),
-            },
+            DnsRecord::CAA(caa) => {
+                let (flags, tag, value) = caa.decompose();
+                DnsContent::CAA {
+                    data: CaaData { flags, tag, value },
+                }
+            }
         }
     }
 }

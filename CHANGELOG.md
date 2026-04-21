@@ -1,3 +1,7 @@
+dns-update 0.2.2
+================================
+- Fix `CAA` record updates for Cloudflare provider.
+
 dns-update 0.2.1
 ================================
 - Fix deletion by record in RFC2136, Cloudflare and DigitalOcean providers
