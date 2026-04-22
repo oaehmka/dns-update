@@ -1,3 +1,7 @@
+dns-update 0.2.3
+================================
+- Cloudflare: Check zone subdomains when finding zones (#39).
+
 dns-update 0.2.2
 ================================
 - Fix `CAA` record updates for Cloudflare provider.

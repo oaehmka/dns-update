@@ -133,21 +133,30 @@ impl CloudflareProvider {
 
     async fn obtain_zone_id(&self, origin: impl IntoFqdn<'_>) -> crate::Result<String> {
         let origin = origin.into_name();
-        self.client
-            .get(format!(
-                "https://api.cloudflare.com/client/v4/zones?{}",
-                Query::name(origin.as_ref()).serialize()
-            ))
-            .send_with_retry::<ApiResult<Vec<IdMap>>>(3)
-            .await
-            .and_then(|r| r.unwrap_response("list zones"))
-            .and_then(|result| {
-                result
-                    .into_iter()
-                    .find(|zone| zone.name == origin.as_ref())
-                    .map(|zone| zone.id)
-                    .ok_or_else(|| Error::Api(format!("Zone {} not found", origin.as_ref())))
-            })
+        let mut candidate: &str = origin.as_ref();
+        loop {
+            let zones = self
+                .client
+                .get(format!(
+                    "https://api.cloudflare.com/client/v4/zones?{}",
+                    Query::name(candidate).serialize()
+                ))
+                .send_with_retry::<ApiResult<Vec<IdMap>>>(3)
+                .await
+                .and_then(|r| r.unwrap_response("list zones"))?;
+            if let Some(zone) = zones.into_iter().find(|zone| zone.name == candidate) {
+                return Ok(zone.id);
+            }
+            match candidate.split_once('.') {
+                Some((_, rest)) if rest.contains('.') => candidate = rest,
+                _ => {
+                    return Err(Error::Api(format!(
+                        "No Cloudflare zone found for {}",
+                        origin.as_ref()
+                    )));
+                }
+            }
+        }
     }
 
     async fn obtain_record_id(
