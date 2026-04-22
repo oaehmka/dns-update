@@ -161,6 +161,14 @@ impl DesecProvider {
     }
 }
 
+fn ensure_fqdn(name: String) -> String {
+    if name.ends_with('.') {
+        name
+    } else {
+        format!("{name}.")
+    }
+}
+
 /// Converts a DNS record into a representation that can be sent to the desec API.
 impl From<DnsRecord> for DesecDnsRecordRepresentation {
     fn from(record: DnsRecord) -> Self {
@@ -175,15 +183,15 @@ impl From<DnsRecord> for DesecDnsRecordRepresentation {
             },
             DnsRecord::CNAME(content) => DesecDnsRecordRepresentation {
                 record_type: "CNAME".to_string(),
-                content,
+                content: ensure_fqdn(content),
             },
             DnsRecord::NS(content) => DesecDnsRecordRepresentation {
                 record_type: "NS".to_string(),
-                content,
+                content: ensure_fqdn(content),
             },
             DnsRecord::MX(mx) => DesecDnsRecordRepresentation {
                 record_type: "MX".to_string(),
-                content: mx.to_string(),
+                content: format!("{} {}", mx.priority, ensure_fqdn(mx.exchange)),
             },
             DnsRecord::TXT(content) => DesecDnsRecordRepresentation {
                 record_type: "TXT".to_string(),
@@ -191,7 +199,13 @@ impl From<DnsRecord> for DesecDnsRecordRepresentation {
             },
             DnsRecord::SRV(srv) => DesecDnsRecordRepresentation {
                 record_type: "SRV".to_string(),
-                content: srv.to_string(),
+                content: format!(
+                    "{} {} {} {}",
+                    srv.priority,
+                    srv.weight,
+                    srv.port,
+                    ensure_fqdn(srv.target)
+                ),
             },
             DnsRecord::TLSA(tlsa) => DesecDnsRecordRepresentation {
                 record_type: "TLSA".to_string(),
