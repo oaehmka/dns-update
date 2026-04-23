@@ -8,7 +8,9 @@
  * option. This file may not be copied, modified, or distributed
  * except according to those terms.
  */
+
 use crate::jwt::{ServiceAccount, create_jwt, exchange_jwt_for_token};
+use crate::utils::write_txt_character_strings;
 use crate::{DnsRecord, DnsRecordType, Error, IntoFqdn, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -180,10 +182,11 @@ impl GoogleCloudDnsProvider {
             DnsRecord::CNAME(c) => vec![format_fqdn_data(c)],
             DnsRecord::NS(ns) => vec![format_fqdn_data(ns)],
             DnsRecord::MX(mx) => vec![mx.to_string()],
-            DnsRecord::TXT(txt) => vec![format!(
-                "\"{}\"",
-                txt.replace('\\', "\\\\").replace('"', "\\\"")
-            )],
+            DnsRecord::TXT(txt) => {
+                let mut rdata = String::new();
+                write_txt_character_strings(&mut rdata, txt, " ");
+                vec![rdata]
+            }
             DnsRecord::SRV(srv) => vec![srv.to_string()],
             DnsRecord::TLSA(tlsa) => vec![tlsa.to_string()],
             DnsRecord::CAA(caa) => {

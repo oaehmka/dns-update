@@ -1,4 +1,90 @@
-use crate::utils::strip_origin_from_name;
+/*
+ * Copyright Stalwart Labs LLC See the COPYING
+ * file at the top-level directory of this distribution.
+ *
+ * Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
+ * https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+ * <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
+ * option. This file may not be copied, modified, or distributed
+ * except according to those terms.
+ */
+
+use crate::utils::{strip_origin_from_name, write_txt_character_strings};
+
+#[test]
+fn test_write_txt_character_strings_short() {
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, "hello", " ");
+    assert_eq!(out, "\"hello\"");
+}
+
+#[test]
+fn test_write_txt_character_strings_empty() {
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, "", " ");
+    assert_eq!(out, "\"\"");
+}
+
+#[test]
+fn test_write_txt_character_strings_escapes_backslash_and_quote() {
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, r#"a"b\c"#, " ");
+    assert_eq!(out, r#""a\"b\\c""#);
+}
+
+#[test]
+fn test_write_txt_character_strings_exact_255() {
+    let s = "a".repeat(255);
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, &s, " ");
+    assert_eq!(out, format!("\"{}\"", s));
+}
+
+#[test]
+fn test_write_txt_character_strings_just_over_255() {
+    let s = "a".repeat(256);
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, &s, " ");
+    assert_eq!(out, format!("\"{}\" \"a\"", "a".repeat(255)));
+}
+
+#[test]
+fn test_write_txt_character_strings_dkim_sized() {
+    let s = "A".repeat(400);
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, &s, " ");
+    assert_eq!(
+        out,
+        format!("\"{}\" \"{}\"", "A".repeat(255), "A".repeat(145))
+    );
+}
+
+#[test]
+fn test_write_txt_character_strings_respects_utf8_boundary() {
+    let mut s: String = "a".repeat(254);
+    s.push('€');
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, &s, " ");
+    assert_eq!(out, format!("\"{}\" \"€\"", "a".repeat(254)));
+}
+
+#[test]
+fn test_write_txt_character_strings_custom_separator() {
+    let s = "a".repeat(300);
+    let mut out = String::new();
+    write_txt_character_strings(&mut out, &s, "\n    ");
+    assert_eq!(
+        out,
+        format!("\"{}\"\n    \"{}\"", "a".repeat(255), "a".repeat(45))
+    );
+}
+
+#[test]
+fn test_write_txt_character_strings_appends_to_existing() {
+    let mut out = String::from("prefix: ");
+    write_txt_character_strings(&mut out, "hello", " ");
+    assert_eq!(out, "prefix: \"hello\"");
+}
 
 #[test]
 fn test_strip_origin_from_name() {

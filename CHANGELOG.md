@@ -1,3 +1,8 @@
+dns-update 0.2.4
+================================
+- Google Cloud DNS: Chunk TXT records into 255-character strings when updating records.
+- desec.io: Fixes + Verification
+
 dns-update 0.2.3
 ================================
 - Cloudflare: Check zone subdomains when finding zones (#39).

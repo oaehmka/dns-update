@@ -19,6 +19,28 @@ use std::{
     str::FromStr,
 };
 
+pub(crate) fn write_txt_character_strings(output: &mut String, text: &str, separator: &str) {
+    const MAX_CHUNK_BYTES: usize = 255;
+    output.push('"');
+    let mut current_bytes: usize = 0;
+    for ch in text.chars() {
+        let ch_len = ch.len_utf8();
+        if current_bytes > 0 && current_bytes + ch_len > MAX_CHUNK_BYTES {
+            output.push('"');
+            output.push_str(separator);
+            output.push('"');
+            current_bytes = 0;
+        }
+        match ch {
+            '\\' => output.push_str("\\\\"),
+            '"' => output.push_str("\\\""),
+            _ => output.push(ch),
+        }
+        current_bytes += ch_len;
+    }
+    output.push('"');
+}
+
 /// Strip `name` from `origin`, return `return_if_equal` if `name` is the same
 /// as `origin`, or  `@` if `None` given.
 pub(crate) fn strip_origin_from_name(
