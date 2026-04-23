@@ -5,6 +5,7 @@ dns-update 0.2.4
 
 dns-update 0.2.3
 ================================
+- Fix deSEC provider to include trailing dots on MX, SRV, CNAME and NS record values, as required by the API.
 - Cloudflare: Check zone subdomains when finding zones (#39).
 
 dns-update 0.2.2
