@@ -35,6 +35,7 @@ use crate::{
         desec::DesecProvider,
         digitalocean::DigitalOceanProvider,
         dnsimple::DNSimpleProvider,
+        infomaniak::InfomaniakProvider,
         porkbun::PorkBunProvider,
         rfc2136::{DnsAddress, Rfc2136Provider},
         route53::Route53Provider,
@@ -139,6 +140,11 @@ impl DnsUpdater {
         Ok(DnsUpdater::Bunny(BunnyProvider::new(api_key, timeout)?))
     }
 
+    /// Create a new DNS updater using the Infomaniak API.
+    pub fn new_infomaniak(api_key: impl AsRef<str>, timeout: Option<Duration>) -> crate::Result<Self> {
+        Ok(DnsUpdater::Infomaniak(InfomaniakProvider::new(api_key, timeout)?))
+    }
+
     /// Create a new DNS updater using the Porkbun API.
     pub fn new_porkbun(
         api_key: impl AsRef<str>,
@@ -214,6 +220,7 @@ impl DnsUpdater {
             DnsUpdater::Desec(provider) => provider.create(name, record, ttl, origin).await,
             DnsUpdater::DigitalOcean(provider) => provider.create(name, record, ttl, origin).await,
             DnsUpdater::DNSimple(provider) => provider.create(name, record, ttl, origin).await,
+            DnsUpdater::Infomaniak(provider) => provider.create(name, record, ttl, origin).await,
             #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
             DnsUpdater::Ovh(provider) => provider.create(name, record, ttl, origin).await,
             DnsUpdater::Porkbun(provider) => provider.create(name, record, ttl, origin).await,
@@ -244,6 +251,7 @@ impl DnsUpdater {
             DnsUpdater::Desec(provider) => provider.update(name, record, ttl, origin).await,
             DnsUpdater::DigitalOcean(provider) => provider.update(name, record, ttl, origin).await,
             DnsUpdater::DNSimple(provider) => provider.update(name, record, ttl, origin).await,
+            DnsUpdater::Infomaniak(provider) => provider.update(name, record, ttl, origin).await,
             #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
             DnsUpdater::Ovh(provider) => provider.update(name, record, ttl, origin).await,
             DnsUpdater::Porkbun(provider) => provider.update(name, record, ttl, origin).await,
@@ -273,6 +281,7 @@ impl DnsUpdater {
             DnsUpdater::Desec(provider) => provider.delete(name, origin, record).await,
             DnsUpdater::DigitalOcean(provider) => provider.delete(name, origin, record).await,
             DnsUpdater::DNSimple(provider) => provider.delete(name, origin, record).await,
+            DnsUpdater::Infomaniak(provider) => provider.delete(name, origin, record).await,
             #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
             DnsUpdater::Ovh(provider) => provider.delete(name, origin, record).await,
             DnsUpdater::Porkbun(provider) => provider.delete(name, origin, record).await,
