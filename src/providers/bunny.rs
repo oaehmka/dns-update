@@ -9,7 +9,10 @@
  * except according to those terms.
  */
 
-use crate::{DnsRecord, DnsRecordType, Error, IntoFqdn, http::HttpClientBuilder};
+use crate::{
+    DnsRecord, DnsRecordType, Error, IntoFqdn, http::HttpClientBuilder,
+    utils::strip_origin_from_name,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     net::{Ipv4Addr, Ipv6Addr},
@@ -40,11 +43,12 @@ impl BunnyProvider {
         ttl: u32,
         origin: impl IntoFqdn<'_>,
     ) -> crate::Result<()> {
-        let zone_id = self.get_zone_data(origin).await?.id;
-        let name = name.into_name();
+        let zone_data = self.get_zone_data(origin).await?;
+        let name = strip_origin_from_name(name.into_name().as_ref(), &zone_data.domain, Some(""));
+
         let (flags, tag) = extract_caa_fields(&record);
         let body = DnsRecordData {
-            name: name.into(),
+            name,
             record_type: (&record).into(),
             ttl: Some(ttl),
             flags,
@@ -52,7 +56,10 @@ impl BunnyProvider {
         };
 
         self.client
-            .put(format!("https://api.bunny.net/dnszone/{zone_id}/records"))
+            .put(format!(
+                "https://api.bunny.net/dnszone/{}/records",
+                zone_data.id
+            ))
             .with_body(&body)?
             .send_with_retry::<BunnyDnsRecord>(3)
             .await
@@ -66,9 +73,8 @@ impl BunnyProvider {
         ttl: u32,
         origin: impl IntoFqdn<'_>,
     ) -> crate::Result<()> {
-        let name = name.into_name();
-
         let zone_data = self.get_zone_data(origin).await?;
+        let name = strip_origin_from_name(name.into_name().as_ref(), &zone_data.domain, Some(""));
         let zone_id = zone_data.id;
         let bunny_record = zone_data
             .records
@@ -105,9 +111,8 @@ impl BunnyProvider {
         origin: impl IntoFqdn<'_>,
         record: DnsRecordType,
     ) -> crate::Result<()> {
-        let name = name.into_name();
-
         let zone_data = self.get_zone_data(origin).await?;
+        let name = strip_origin_from_name(name.into_name().as_ref(), &zone_data.domain, Some(""));
         let zone_id = zone_data.id;
         let record_id = zone_data
             .records
