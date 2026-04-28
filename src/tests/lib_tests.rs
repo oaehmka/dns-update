@@ -9,50 +9,50 @@
  * except according to those terms.
  */
 
-use crate::utils::{strip_origin_from_name, write_txt_character_strings};
+use crate::utils::{strip_origin_from_name, txt_chunks_to_text};
 
 #[test]
-fn test_write_txt_character_strings_short() {
+fn test_txt_chunks_to_text_short() {
     let mut out = String::new();
-    write_txt_character_strings(&mut out, "hello", " ");
+    txt_chunks_to_text(&mut out, "hello", " ");
     assert_eq!(out, "\"hello\"");
 }
 
 #[test]
-fn test_write_txt_character_strings_empty() {
+fn test_txt_chunks_to_text_empty() {
     let mut out = String::new();
-    write_txt_character_strings(&mut out, "", " ");
+    txt_chunks_to_text(&mut out, "", " ");
     assert_eq!(out, "\"\"");
 }
 
 #[test]
-fn test_write_txt_character_strings_escapes_backslash_and_quote() {
+fn test_txt_chunks_to_text_escapes_backslash_and_quote() {
     let mut out = String::new();
-    write_txt_character_strings(&mut out, r#"a"b\c"#, " ");
+    txt_chunks_to_text(&mut out, r#"a"b\c"#, " ");
     assert_eq!(out, r#""a\"b\\c""#);
 }
 
 #[test]
-fn test_write_txt_character_strings_exact_255() {
+fn test_txt_chunks_to_text_exact_255() {
     let s = "a".repeat(255);
     let mut out = String::new();
-    write_txt_character_strings(&mut out, &s, " ");
+    txt_chunks_to_text(&mut out, &s, " ");
     assert_eq!(out, format!("\"{}\"", s));
 }
 
 #[test]
-fn test_write_txt_character_strings_just_over_255() {
+fn test_txt_chunks_to_text_just_over_255() {
     let s = "a".repeat(256);
     let mut out = String::new();
-    write_txt_character_strings(&mut out, &s, " ");
+    txt_chunks_to_text(&mut out, &s, " ");
     assert_eq!(out, format!("\"{}\" \"a\"", "a".repeat(255)));
 }
 
 #[test]
-fn test_write_txt_character_strings_dkim_sized() {
+fn test_txt_chunks_to_text_dkim_sized() {
     let s = "A".repeat(400);
     let mut out = String::new();
-    write_txt_character_strings(&mut out, &s, " ");
+    txt_chunks_to_text(&mut out, &s, " ");
     assert_eq!(
         out,
         format!("\"{}\" \"{}\"", "A".repeat(255), "A".repeat(145))
@@ -60,19 +60,19 @@ fn test_write_txt_character_strings_dkim_sized() {
 }
 
 #[test]
-fn test_write_txt_character_strings_respects_utf8_boundary() {
+fn test_txt_chunks_to_text_respects_utf8_boundary() {
     let mut s: String = "a".repeat(254);
     s.push('€');
     let mut out = String::new();
-    write_txt_character_strings(&mut out, &s, " ");
+    txt_chunks_to_text(&mut out, &s, " ");
     assert_eq!(out, format!("\"{}\" \"€\"", "a".repeat(254)));
 }
 
 #[test]
-fn test_write_txt_character_strings_custom_separator() {
+fn test_txt_chunks_to_text_custom_separator() {
     let s = "a".repeat(300);
     let mut out = String::new();
-    write_txt_character_strings(&mut out, &s, "\n    ");
+    txt_chunks_to_text(&mut out, &s, "\n    ");
     assert_eq!(
         out,
         format!("\"{}\"\n    \"{}\"", "a".repeat(255), "a".repeat(45))
@@ -80,9 +80,9 @@ fn test_write_txt_character_strings_custom_separator() {
 }
 
 #[test]
-fn test_write_txt_character_strings_appends_to_existing() {
+fn test_txt_chunks_to_text_appends_to_existing() {
     let mut out = String::from("prefix: ");
-    write_txt_character_strings(&mut out, "hello", " ");
+    txt_chunks_to_text(&mut out, "hello", " ");
     assert_eq!(out, "prefix: \"hello\"");
 }
 

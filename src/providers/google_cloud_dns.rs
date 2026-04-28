@@ -10,7 +10,7 @@
  */
 
 use crate::jwt::{ServiceAccount, create_jwt, exchange_jwt_for_token};
-use crate::utils::write_txt_character_strings;
+use crate::utils::txt_chunks_to_text;
 use crate::{DnsRecord, DnsRecordType, Error, IntoFqdn, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -184,7 +184,7 @@ impl GoogleCloudDnsProvider {
             DnsRecord::MX(mx) => vec![mx.to_string()],
             DnsRecord::TXT(txt) => {
                 let mut rdata = String::new();
-                write_txt_character_strings(&mut rdata, txt, " ");
+                txt_chunks_to_text(&mut rdata, txt, " ");
                 vec![rdata]
             }
             DnsRecord::SRV(srv) => vec![srv.to_string()],

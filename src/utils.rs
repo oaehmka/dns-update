@@ -19,8 +19,9 @@ use std::{
     str::FromStr,
 };
 
-pub(crate) fn write_txt_character_strings(output: &mut String, text: &str, separator: &str) {
-    const MAX_CHUNK_BYTES: usize = 255;
+const MAX_CHUNK_BYTES: usize = 255;
+
+pub(crate) fn txt_chunks_to_text(output: &mut String, text: &str, separator: &str) {
     output.push('"');
     let mut current_bytes: usize = 0;
     for ch in text.chars() {
@@ -39,6 +40,29 @@ pub(crate) fn write_txt_character_strings(output: &mut String, text: &str, separ
         current_bytes += ch_len;
     }
     output.push('"');
+}
+
+pub(crate) fn txt_chunks(content: String) -> Vec<String> {
+    if content.len() <= MAX_CHUNK_BYTES {
+        return vec![content];
+    }
+
+    let mut chunks = Vec::new();
+    let mut chunk = String::new();
+
+    for ch in content.chars() {
+        let ch_len = ch.len_utf8();
+        if !chunk.is_empty() && chunk.len() + ch_len > MAX_CHUNK_BYTES {
+            chunks.push(std::mem::take(&mut chunk));
+        }
+        chunk.push(ch);
+    }
+
+    if !chunk.is_empty() {
+        chunks.push(chunk);
+    }
+
+    chunks
 }
 
 /// Strip `name` from `origin`, return `return_if_equal` if `name` is the same
