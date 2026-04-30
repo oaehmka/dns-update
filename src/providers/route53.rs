@@ -11,18 +11,17 @@
 
 use crate::crypto::{hmac_sha256, sha256_digest};
 use crate::{DnsRecord, DnsRecordType, IntoFqdn};
-
-use std::time::SystemTime;
-
 use quick_xml::de::from_str;
 use quick_xml::se::to_string;
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
+use std::time::SystemTime;
 
 const ROUTE53_API_VERSION: &str = "2013-04-01";
 const ROUTE53_SERVICE: &str = "route53";
 const ROUTE53_HOST: &str = "route53.amazonaws.com";
+const ROUTE53_XMLNS: &str = "https://route53.amazonaws.com/doc/2013-04-01/";
 
 /// Route53 provider configuration
 #[derive(Debug, Clone)]
@@ -83,15 +82,17 @@ impl Route53Provider {
 
         let change_batch = ChangeBatch {
             comment: Some(format!("Create record for {}", name)),
-            changes: vec![Change {
-                action: ChangeAction::Create,
-                resource_record_set: self
-                    .record_to_rrset(&name, &record, ttl)
-                    .map_err(|e| crate::Error::Api(format!("{}", e)))?,
-            }],
+            changes: Changes {
+                changes: vec![Change {
+                    action: ChangeAction::Create,
+                    resource_record_set: self
+                        .record_to_rrset(&name, &record, ttl)
+                        .map_err(|e| crate::Error::Api(format!("{}", e)))?,
+                }],
+            },
         };
 
-        self.send_change_request(&hosted_zone_id, &change_batch)
+        self.send_change_request(&hosted_zone_id, change_batch)
             .await
             .map_err(|e| crate::Error::Api(e.to_string()))
     }
@@ -115,15 +116,17 @@ impl Route53Provider {
 
         let change_batch = ChangeBatch {
             comment: Some(format!("Update record for {}", name)),
-            changes: vec![Change {
-                action: ChangeAction::Upsert,
-                resource_record_set: self
-                    .record_to_rrset(&name, &record, ttl)
-                    .map_err(|e| crate::Error::Api(format!("{}", e)))?,
-            }],
+            changes: Changes {
+                changes: vec![Change {
+                    action: ChangeAction::Upsert,
+                    resource_record_set: self
+                        .record_to_rrset(&name, &record, ttl)
+                        .map_err(|e| crate::Error::Api(format!("{}", e)))?,
+                }],
+            },
         };
 
-        self.send_change_request(&hosted_zone_id, &change_batch)
+        self.send_change_request(&hosted_zone_id, change_batch)
             .await
             .map_err(|e| crate::Error::Api(e.to_string()))
     }
@@ -166,12 +169,14 @@ impl Route53Provider {
                 let rrset = matching_rrsets.pop().unwrap();
                 let change_batch = ChangeBatch {
                     comment: Some(format!("Delete {} record for {}", record_type, name)),
-                    changes: vec![Change {
-                        action: ChangeAction::Delete,
-                        resource_record_set: rrset,
-                    }],
+                    changes: Changes {
+                        changes: vec![Change {
+                            action: ChangeAction::Delete,
+                            resource_record_set: rrset,
+                        }],
+                    },
                 };
-                self.send_change_request(&hosted_zone_id, &change_batch)
+                self.send_change_request(&hosted_zone_id, change_batch)
                     .await
                     .map_err(|e| crate::Error::Api(format!("{}", e)))
             }
@@ -225,13 +230,13 @@ impl Route53Provider {
         &self,
     ) -> Result<Vec<HostedZone>, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!(
-            "https://{}/{}/hostedzonebyname",
+            "https://{}/{}/hostedzonesbyname",
             ROUTE53_HOST, ROUTE53_API_VERSION
         );
         let response = self.send_signed_request("GET", &url, None).await?;
         let list_response: ListHostedZonesByNameResponse =
             from_str(&response.text().await?).map_err(|e| format!("XML parsing error: {}", e))?;
-        Ok(list_response.hosted_zones)
+        Ok(list_response.hosted_zones.hosted_zones)
     }
 
     /// List resource record sets for a specific name and type
@@ -253,14 +258,14 @@ impl Route53Provider {
         let response = self.send_signed_request("GET", &url, None).await?;
         let list_response: ListResourceRecordSetsResponse =
             from_str(&response.text().await?).map_err(|e| format!("XML parsing error: {}", e))?;
-        Ok(list_response.resource_record_sets)
+        Ok(list_response.resource_record_sets.resource_record_sets)
     }
 
     /// Send a change request to Route53
     async fn send_change_request(
         &self,
         hosted_zone_id: &str,
-        change_batch: &ChangeBatch,
+        change_batch: ChangeBatch,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let url = format!(
             "https://{}/{}/hostedzone/{}/rrset",
@@ -269,8 +274,12 @@ impl Route53Provider {
             hosted_zone_id.trim_start_matches("/hostedzone/")
         );
 
-        let payload =
-            to_string(change_batch).map_err(|e| format!("XML serialization error: {}", e))?;
+        let request = ChangeResourceRecordSetsRequest {
+            xmlns: ROUTE53_XMLNS,
+            change_batch,
+        };
+
+        let payload = to_string(&request).map_err(|e| format!("XML serialization error: {}", e))?;
 
         self.send_signed_request("POST", &url, Some(payload))
             .await?;
@@ -401,7 +410,9 @@ impl Route53Provider {
             DnsRecord::CAA(caa) => caa.to_string(),
         };
 
-        let resource_records = vec![ResourceRecord { value }];
+        let resource_records = ResourceRecords {
+            resource_records: vec![ResourceRecord { value }],
+        };
 
         Ok(ResourceRecordSet {
             name: name.to_string(),
@@ -435,10 +446,25 @@ impl Route53Provider {
 
 // XML structures for Route53 API
 
+#[derive(Debug, Serialize)]
+#[serde(rename = "ChangeResourceRecordSetsRequest")]
+struct ChangeResourceRecordSetsRequest {
+    #[serde(rename = "@xmlns")]
+    xmlns: &'static str,
+    #[serde(rename = "ChangeBatch")]
+    change_batch: ChangeBatch,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct ChangeBatch {
-    #[serde(rename = "@comment", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "Comment", skip_serializing_if = "Option::is_none")]
     comment: Option<String>,
+    #[serde(rename = "Changes")]
+    changes: Changes,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Changes {
     #[serde(rename = "Change")]
     changes: Vec<Change>,
 }
@@ -468,7 +494,7 @@ struct ResourceRecordSet {
     #[serde(rename = "TTL")]
     ttl: i64,
     #[serde(rename = "ResourceRecords")]
-    resource_records: Vec<ResourceRecord>,
+    resource_records: ResourceRecords,
     #[serde(rename = "SetIdentifier", skip_serializing_if = "Option::is_none")]
     set_identifier: Option<String>,
     #[serde(rename = "Weight", skip_serializing_if = "Option::is_none")]
@@ -484,6 +510,12 @@ struct ResourceRecordSet {
         skip_serializing_if = "Option::is_none"
     )]
     traffic_policy_instance_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ResourceRecords {
+    #[serde(rename = "ResourceRecord", default)]
+    resource_records: Vec<ResourceRecord>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -505,15 +537,21 @@ struct GeoLocation {
 #[derive(Debug, Serialize, Deserialize)]
 struct ListHostedZonesByNameResponse {
     #[serde(rename = "HostedZones")]
-    hosted_zones: Vec<HostedZone>,
+    hosted_zones: HostedZones,
     #[serde(rename = "IsTruncated")]
     is_truncated: bool,
-    #[serde(rename = "NextRecordName", skip_serializing_if = "Option::is_none")]
-    next_record_name: Option<String>,
-    #[serde(rename = "NextRecordType", skip_serializing_if = "Option::is_none")]
-    next_record_type: Option<String>,
+    #[serde(rename = "NextDNSName", skip_serializing_if = "Option::is_none")]
+    next_dns_name: Option<String>,
+    #[serde(rename = "NextHostedZoneId", skip_serializing_if = "Option::is_none")]
+    next_hosted_zone_id: Option<String>,
     #[serde(rename = "MaxItems")]
     max_items: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct HostedZones {
+    #[serde(rename = "HostedZone", default)]
+    hosted_zones: Vec<HostedZone>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -537,7 +575,7 @@ struct HostedZoneConfig {
 #[derive(Debug, Serialize, Deserialize)]
 struct ListResourceRecordSetsResponse {
     #[serde(rename = "ResourceRecordSets")]
-    resource_record_sets: Vec<ResourceRecordSet>,
+    resource_record_sets: ResourceRecordSets,
     #[serde(rename = "IsTruncated")]
     is_truncated: bool,
     #[serde(rename = "MaxItems")]
@@ -551,4 +589,10 @@ struct ListResourceRecordSetsResponse {
         skip_serializing_if = "Option::is_none"
     )]
     next_record_identifier: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ResourceRecordSets {
+    #[serde(rename = "ResourceRecordSet", default)]
+    resource_record_sets: Vec<ResourceRecordSet>,
 }

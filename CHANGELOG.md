@@ -1,3 +1,7 @@
+dns-update 0.2.6
+================================
+- Route53: Fix serialization format (#44).
+
 dns-update 0.2.5
 ================================
 - BunnyDNS: Use subdomain as name of record instead of FQDN.
