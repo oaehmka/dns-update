@@ -19,6 +19,7 @@ pub mod dnsimple;
 pub mod google_cloud_dns;
 #[cfg(feature = "test_provider")]
 pub mod in_memory;
+pub mod infomaniak;
 pub mod ovh;
 #[cfg(feature = "test_provider")]
 pub mod pebble;

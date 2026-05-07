@@ -19,7 +19,7 @@ use providers::{in_memory::InMemoryProvider, pebble::PebbleProvider};
 pub use hickory_client::proto::dnssec;
 use providers::{
     bunny::BunnyProvider, cloudflare::CloudflareProvider, desec::DesecProvider,
-    digitalocean::DigitalOceanProvider, dnsimple::DNSimpleProvider, porkbun::PorkBunProvider,
+    digitalocean::DigitalOceanProvider, dnsimple::DNSimpleProvider, infomaniak::InfomaniakProvider, porkbun::PorkBunProvider,
     rfc2136::Rfc2136Provider, route53::Route53Provider, spaceship::SpaceshipProvider,
 };
 use std::{
@@ -193,6 +193,7 @@ pub enum DnsUpdater {
     #[cfg(any(feature = "ring", feature = "aws-lc-rs"))]
     Ovh(OvhProvider),
     Bunny(BunnyProvider),
+    Infomaniak(InfomaniakProvider),
     Porkbun(PorkBunProvider),
     Spaceship(SpaceshipProvider),
     DNSimple(DNSimpleProvider),
